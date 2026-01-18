@@ -60,8 +60,8 @@ func UpdateItemStatus(c *gin.Context)  {
 		"last_checked": time.Now(),
 	})
 
-	log := models.MaintanceLog{
-		ItemId: item.Id,
+	log := models.MaintenanceLog{
+		ItemId: item.ID,
 		Status: input.Status,
 		Note: input.Note,
 		CheckedBy: input.Admin,
@@ -70,4 +70,42 @@ func UpdateItemStatus(c *gin.Context)  {
 	config.DB.Create(&log)
 
 	c.JSON(http.StatusOK, gin.H{"message" : "Status barang berhasil diupdate", "data":item})
+}
+
+type BatchUpdateInput struct{
+	ID     uint   `json:"id"`
+    Status string `json:"status"`
+    Note   string `json:"note"`
+}
+
+func BatchUpdateItems(c *gin.Context)	{
+	var inputs []BatchUpdateInput
+
+	if err := c.ShouldBindJSON(&inputs); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error" : err.Error()})
+		return
+	}
+
+	tx := config.DB.Begin()
+	for _, item := range inputs{
+		if err := tx.Model(&models.Item{}).Where("id = ?", item.ID).Updates(map[string]interface{}{
+			"status":       item.Status,
+			"condition":    item.Note,
+			"last_checked": time.Now(),
+		}).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal update item ID " + string(rune(item.ID))})
+			return
+		}
+		log := models.MaintenanceLog{
+			ItemId:    item.ID,
+			Status:    item.Status,
+			Note:      item.Note,
+			CheckedBy: "Admin Batch", 
+			CheckedAt: time.Now(),
+		}
+		tx.Create(&log)
+	}
+	tx.Commit()
+	c.JSON(http.StatusOK, gin.H{"message": "Semua data berhasil disimpan!"})
 }

@@ -5,8 +5,8 @@ import (
 	"lab-inventaris/models"
 	"log"
 
-	"gorm.io/gorm"
 	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 var DB *gorm.DB
@@ -19,7 +19,7 @@ func ConnectDB() {
 		log.Fatal("Gagal konek ke database :", err)
 	}
 
-	database.AutoMigrate(&models.Lab{}, &models.Item{}, &models.MaintanceLog{})
+	database.AutoMigrate(&models.Lab{}, &models.Item{}, &models.MaintenanceLog{}, &models.User{})
 
 	DB = database
 	fmt.Println("Database Terkoneksi & Termigrasi")

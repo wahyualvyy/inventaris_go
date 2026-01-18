@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cek Inventaris - {{ .Lab.Name }}</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+    <nav class="bg-blue-600 p-4 text-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <i data-lucide="monitor"></i> Sistem Inventaris Lab
+            </h1>
+            <div class="text-sm">Admin Logged In</div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-6">
+
+        <div class="mb-6 flex justify-between items-end">
+            <div>
+                <h2 class="text-3xl font-bold text-gray-900">{{ .Lab.Name }}</h2>
+                <p class="text-gray-500">Form Pengecekan Rutin Mingguan</p>
+            </div>
+            <button onclick="saveAll()"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow transition transform hover:scale-105 flex items-center gap-2">
+                <i data-lucide="save"></i> Simpan Semua Perubahan
+            </button>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-100 text-gray-600 uppercase text-sm leading-normal">
+                        <th class="py-3 px-6">ID Barang</th>
+                        <th class="py-3 px-6">Nama Barang</th>
+                        <th class="py-3 px-6">Status Saat Ini</th>
+                        <th class="py-3 px-6">Catatan / Kondisi</th>
+                        <th class="py-3 px-6 text-center">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-600 text-sm font-light">
+                    {{ range .Items }}
+                    <tr class="border-b border-gray-200 hover:bg-gray-50 transition" id="row-{{ .ID }}">
+                        <td class="py-3 px-6 font-medium">{{ .Name }}</td>
+                        <td class="py-3 px-6">
+                            <span class="bg-gray-200 text-gray-700 py-1 px-3 rounded-full text-xs font-bold">
+                                {{ .Category }}
+                            </span>
+                        </td>
+
+                        <td class="py-3 px-6">
+                            <select id="status-{{ .ID }}"
+                                class="block w-full bg-white border border-gray-300 text-gray-700 py-2 px-3 rounded leading-tight focus:outline-none focus:bg-white focus:border-blue-500">
+                                <option value="Good" {{ if eq .Status "Good" }}selected{{ end }}>Good (Aman)</option>
+                                <option value="Maintenance" {{ if eq .Status "Maintenance" }}selected{{ end }}>
+                                    Maintenance</option>
+                                <option value="Broken" {{ if eq .Status "Broken" }}selected{{ end }}>Broken (Rusak)
+                                </option>
+                            </select>
+                        </td>
+
+                        <td class="py-3 px-6">
+                            <input type="text" id="note-{{ .ID }}" value="{{ .Condition }}"
+                                class="appearance-none block w-full bg-gray-50 text-gray-700 border border-gray-300 rounded py-2 px-3 leading-tight focus:outline-none focus:bg-white focus:border-blue-500"
+                                placeholder="Keterangan kerusakan...">
+                        </td>
+
+                        <td class="py-3 px-6 text-center">
+                            <button onclick="updateItem({{ .ID }})"
+                                class="text-blue-500 hover:text-blue-700 font-bold py-1 px-3 border border-blue-500 rounded text-xs transition">
+                                Update
+                            </button>
+                        </td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        function updateItem(id) {
+            const status = document.getElementById(`status-${id}`).value;
+            const note = document.getElementById(`note-${id}`).value;
+
+            fetch(`/api/v1/items/${id}/check`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    status: status,
+                    note: note,
+                    admin_name: "Admin Web"
+                }),
+            })
+                .then(response => {
+                    if (response.ok) {
+                        const row = document.getElementById(`row-${id}`);
+                        row.classList.add("bg-green-100");
+                        setTimeout(() => row.classList.remove("bg-green-100"), 1000);
+                        alert("Data berhasil disimpan!");
+                    } else {
+                        alert("Gagal menyimpan data.");
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function saveAll() {
+            // 1. Konfirmasi dulu
+            if (!confirm("Apakah Anda yakin ingin menyimpan semua perubahan status?")) return;
+
+            // 2. Kumpulkan semua data dari tabel
+            const rows = document.querySelectorAll('tbody tr');
+            let payload = [];
+
+            rows.forEach(row => {
+                // Ambil ID dari atribut id="row-1" -> jadi angka 1
+                const id = row.id.replace('row-', '');
+
+                const status = document.getElementById(`status-${id}`).value;
+                const note = document.getElementById(`note-${id}`).value;
+
+                payload.push({
+                    id: parseInt(id),
+                    status: status,
+                    note: note
+                });
+            });
+
+            // 3. Kirim ke Backend (Batch)
+            fetch('/api/v1/items/batch-check', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+                .then(response => {
+                    if (response.ok) {
+                        alert("Sukses! Semua data telah diperbarui.");
+                        location.reload(); // Refresh halaman agar data segar
+                    } else {
+                        alert("Terjadi kesalahan saat menyimpan.");
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+    </script>
+</body>
+
+</html>
